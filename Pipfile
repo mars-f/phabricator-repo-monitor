@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[dev-packages]
+pytest = "*"
+black = "==18.6b4"
+
+[packages]
+click = "*"
+maya = "*"
+requests = "*"
+black = "==18.6b4"
+tzlocal = "*"
+
+[requires]
+python_version = "3.6.5"
+
+[pipenv]
+allow_prereleases = true
