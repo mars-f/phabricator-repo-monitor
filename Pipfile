@@ -12,7 +12,7 @@ click = "*"
 maya = "*"
 requests = "*"
 black = "==18.6b4"
-tzlocal = "*"
+tzlocal = "==1.5.1"
 
 [requires]
 python_version = "3.6.5"
