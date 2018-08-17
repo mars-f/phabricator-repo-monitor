@@ -19,3 +19,6 @@ python_version = "3.6.5"
 
 [pipenv]
 allow_prereleases = true
+
+[scripts]
+show_lag = "python bin/show-lag"

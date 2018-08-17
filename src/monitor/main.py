@@ -42,7 +42,7 @@ def fetch_commit_publication_time(source: Source, commit_sha: str):
     return MayaDT(changeset_json["date"][0])
 
 
-def determine_mirror_replication_lag(
+def determine_commit_replication_lag(
     source: Source, mirror: Mirror, commit_sha: str
 ) -> MayaInterval:
     if not commit_in_mirror(mirror, commit_sha):
@@ -51,10 +51,6 @@ def determine_mirror_replication_lag(
         )
     else:
         return MayaInterval(start=now(), duration=0)
-
-
-def report_replication_lag(interval: MayaInterval):
-    print("replication lag (seconds):", interval.timedelta.seconds)
 
 
 def main():
@@ -71,8 +67,8 @@ def main():
     mirror = Mirror(
         url="https://phabricator.services.mozilla.com", repo_callsign="MOZILLACENTRAL"
     )
-    lag = determine_mirror_replication_lag(source, mirror, commit_sha)
-    report_replication_lag(lag)
+    lag = determine_commit_replication_lag(source, mirror, commit_sha)
+    print("replication lag (seconds):", lag.timedelta.seconds)
 
 
 if __name__ == "__main__":

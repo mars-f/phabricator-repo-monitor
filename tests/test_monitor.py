@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import maya
 
-from monitor.main import determine_mirror_replication_lag
+from monitor.main import determine_commit_replication_lag
 
 
 def replace_function(name, replacement):
@@ -26,7 +26,7 @@ def empty(iter):
 
 def test_lag_is_zero_if_commit_in_mirror():
     with replace_function('monitor.main.commit_in_mirror', true):
-        assert determine_mirror_replication_lag(None, None, 0).duration == 0
+        assert determine_commit_replication_lag(None, None, 0).duration == 0
 
 
 def test_lag_is_commit_ts_if_commit_missing():
@@ -35,5 +35,5 @@ def test_lag_is_commit_ts_if_commit_missing():
 
     with replace_function('monitor.main.commit_in_mirror', false),\
             replace_function('monitor.main.fetch_commit_publication_time',  one_day_ago):
-        lag = determine_mirror_replication_lag(None, None, 0)
+        lag = determine_commit_replication_lag(None, None, 0)
         assert lag.timedelta.days == 1
