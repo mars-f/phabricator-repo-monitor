@@ -51,25 +51,3 @@ def determine_commit_replication_lag(
         )
     else:
         return MayaInterval(start=now(), duration=0)
-
-
-def main():
-    import sys
-
-    commit_sha = sys.argv[1]
-    assert len(commit_sha) == 40
-
-    import logging
-
-    logging.basicConfig(level=logging.DEBUG)
-
-    source = Source(repo_url="https://hg.mozilla.org/integration/autoland/")
-    mirror = Mirror(
-        url="https://phabricator.services.mozilla.com", repo_callsign="MOZILLACENTRAL"
-    )
-    lag = determine_commit_replication_lag(source, mirror, commit_sha)
-    print("replication lag (seconds):", lag.timedelta.seconds)
-
-
-if __name__ == "__main__":
-    main()
