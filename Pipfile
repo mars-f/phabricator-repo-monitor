@@ -13,6 +13,7 @@ maya = "*"
 requests = "*"
 black = "==18.6b4"
 tzlocal = "==1.5.1"
+kombu = "*"
 
 [requires]
 python_version = "3.6.5"
