@@ -8,6 +8,7 @@ See https://wiki.mozilla.org/Auto-tools/Projects/Pulse
 """
 import logging
 import socket
+import sys
 from contextlib import closing
 from functools import partial
 
@@ -17,6 +18,8 @@ from kombu import Connection, Exchange, Queue
 # from committelemetry.hgmo import changesets_for_pushid
 # from committelemetry.telemetry import payload_for_changeset, send_ping
 # from committelemetry.sentry import client as sentry   # FIXME sentry integration
+from monitor.hgmo import changesets_for_pushid
+from monitor.main import Mirror, Source, check_and_report_mirror_delay
 
 log = logging.getLogger(__name__)
 
@@ -39,23 +42,23 @@ def process_push_message(body, message, no_send=False):
     """
     ack = noop if no_send else message.ack
 
-    log.debug(f'received message: {message}')
+    log.debug(f"received message: {message}")
 
-    payload = body['payload']
-    log.debug(f'message payload: {payload}')
+    payload = body["payload"]
+    log.debug(f"message payload: {payload}")
 
-    msgtype = payload['type']
-    if msgtype != 'changegroup.1':
-        log.info(f'skipped message of type {msgtype}')
+    msgtype = payload["type"]
+    if msgtype != "changegroup.1":
+        log.info(f"skipped message of type {msgtype}")
         ack()
         return
 
-    pushlog_pushes = payload['data']['pushlog_pushes']
+    pushlog_pushes = payload["data"]["pushlog_pushes"]
     # The count should always be 0 or 1.
     # See https://mozilla-version-control-tools.readthedocs.io/en/latest/hgmo/notifications.html#changegroup-1
     pcount = len(pushlog_pushes)
     if pcount == 0:
-        log.info(f'skipped message with zero pushes')
+        log.info(f"skipped message with zero pushes")
         ack()
         return
     elif pcount > 1:
@@ -64,38 +67,31 @@ def process_push_message(body, message, no_send=False):
         # this isn't supposed to happen, and we should contact the hgpush
         # service admin in #vcs on IRC.
         log.warning(
-            f'skipped invalid message with multiple pushes (expected 0 or 1, got {pcount})'
+            f"skipped invalid message with multiple pushes (expected 0 or 1, got {pcount})"
         )
         ack()
         return
 
     pushdata = pushlog_pushes.pop()
 
-    repo_url = payload['data']['repo_url']
-    print(repo_url)
+    source = Source("")
+    mirror = Mirror("", "")
 
-    # for changeset in changesets_for_pushid(
-    #     pushdata['pushid'], pushdata['push_json_url']
-    # ):
-    #     changeset_url = f'{repo_url}/rev/{changeset}'
-    #     log.info(f'processing changeset {changeset}: {changeset_url}')
-    #     # sentry.extra_context({'changeset': changeset, 'changeset URL': changeset_url})    # FIXME sentry integration
-    #     # statsd.increment('job.items') # FIXME datadog
-    #
-    #     ping = payload_for_changeset(changeset, repo_url)
-    #
-    #     if no_send:
-    #         log.info(f'ping data (not sent): {ping}')
-    #         continue
-    #
-    #     # Pings need a unique ID so they can be de-duplicated by the ingestion
-    #     # service.  We can use the changeset ID for the unique key.
-    #     send_ping(changeset, ping)
+    changesets = changesets_for_pushid(pushdata["pushid"], pushdata["push_json_url"])
+    replication_status = check_and_report_mirror_delay(changesets, mirror, source)
 
+    if replication_status.is_stale:
+        # Don't ack() the message, leave processing where it is for the next job run.
+        sys.exit(1)
+
+    # The changesets in this push have all been replicated.  Move on to the next
+    # push.
     ack()
 
 
-def run_pulse_listener(username, password, exchange_name, queue_name, routing_key, timeout, no_send):
+def run_pulse_listener(
+    username, password, exchange_name, queue_name, routing_key, timeout, no_send
+):
     """Run a Pulse message queue listener."""
     connection = build_connection(password, username)
 
@@ -106,10 +102,10 @@ def run_pulse_listener(username, password, exchange_name, queue_name, routing_ke
     )  # Retries must be >=1 or it will retry forever.
 
     with closing(connection):
-        hgpush_exchange = Exchange(exchange_name, 'topic', channel=connection)
+        hgpush_exchange = Exchange(exchange_name, "topic", channel=connection)
 
         # Pulse queue names need to be prefixed with the username
-        queue_name = f'queue/{username}/{queue_name}'
+        queue_name = f"queue/{username}/{queue_name}"
         queue = Queue(
             queue_name,
             exchange=hgpush_exchange,
@@ -134,29 +130,27 @@ def run_pulse_listener(username, password, exchange_name, queue_name, routing_ke
 
         # Pass auto_declare=False so that Consumer does not try to declare the
         # exchange.  Declaring exchanges is not allowed by the Pulse server.
-        with connection.Consumer(
-            queue, callbacks=[callback], auto_declare=False
-        ):
+        with connection.Consumer(queue, callbacks=[callback], auto_declare=False):
 
             if no_send:
-                log.info('transmission of ping data has been disabled')
-                log.info('message acks has been disabled')
+                log.info("transmission of ping data has been disabled")
+                log.info("message acks has been disabled")
 
-            log.info('reading messages')
+            log.info("reading messages")
             try:
                 connection.drain_events(timeout=timeout)
             except socket.timeout:
-                log.info('message queue is empty, nothing to do')
+                log.info("message queue is empty, nothing to do")
 
-    log.info('done')
+    log.info("done")
 
 
 def build_connection(password, username):
-    connection = Connection(
-        hostname='pulse.mozilla.org',
+    """Build a kombu.Connection object."""
+    return Connection(
+        hostname="pulse.mozilla.org",
         port=5671,
         ssl=True,
         userid=username,
         password=password,
     )
-    return connection

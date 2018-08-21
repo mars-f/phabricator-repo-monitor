@@ -8,7 +8,7 @@ import sys
 
 import click
 
-from monitor.main import Source, Mirror, determine_commit_replication_lag
+from monitor.main import Mirror, Source, determine_commit_replication_status
 from monitor.pulse import run_pulse_listener
 
 
@@ -35,21 +35,20 @@ def show_lag(debug, node_ids):
 
     if node_ids:
         for node_id in node_ids:
-            lag = determine_commit_replication_lag(source, mirror, node_id)
-            lag_seconds = lag.timedelta.seconds
-            if lag_seconds == 0:
-                report = click.style("0", fg="green", bold=True)
+            status = determine_commit_replication_status(source, mirror, node_id)
+            if status.is_stale:
+                report = click.style(str(status.seconds_behind), fg="yellow", bold=True)
             else:
-                report = click.style(lag_seconds, fg="yellow", bold=True)
+                report = click.style("0", fg="green", bold=True)
             click.echo("replication lag (seconds): ", nl=False)
             click.echo(report)
     else:
         run_pulse_listener(
-            os.environ['PULSE_USERNAME'],
-            os.environ['PULSE_PASSWORD'],
-            os.environ['PULSE_EXCHANGE'],
-            os.environ['PULSE_QUEUE_NAME'],
-            os.environ['PULSE_QUEUE_ROUTING_KEY'],
+            os.environ["PULSE_USERNAME"],
+            os.environ["PULSE_PASSWORD"],
+            os.environ["PULSE_EXCHANGE"],
+            os.environ["PULSE_QUEUE_NAME"],
+            os.environ["PULSE_QUEUE_ROUTING_KEY"],
             0,
-            True
+            True,
         )

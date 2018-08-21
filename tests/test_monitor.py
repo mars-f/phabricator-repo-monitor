@@ -7,57 +7,85 @@ from unittest.mock import patch
 import kombu as kombu
 import maya
 import pytest
-
-from monitor.cli import show_lag
-from monitor.main import determine_commit_replication_lag
 from click.testing import CliRunner
 
+from monitor.cli import show_lag
+from monitor.main import (
+    Mirror,
+    ReplicationStatus,
+    Source,
+    determine_commit_replication_status,
+    fetch_commit_publication_time,
+    find_first_lagged_changset,
+)
 
 # This structure is described here:
 # https://mozilla-version-control-tools.readthedocs.io/en/latest/hgmo/notifications.html#common-properties-of-notifications
 # Example messages can be collected from this URL:
 # https://tools.taskcluster.net/pulse-inspector?bindings[0][exchange]=exchange%2Fhgpushes%2Fv2&bindings[0][routingKeyPattern]=%23
-test_message = {
-    'payload': {
-        'type': 'changegroup.1',
-        'data': {
-            'pushlog_pushes': [
+example_message = {
+    "payload": {
+        "type": "changegroup.1",
+        "data": {
+            "pushlog_pushes": [
                 {
-                    'time': 15278721560,
-                    'pushid': 64752,
-                    'push_json_url': 'https://hg.mozilla.org/integration/autoland/json-pushes?version=2&startID=64751&endID=64752',
-                    'push_full_json_url': 'https://hg.mozilla.org/integration/autoland/json-pushes?version=2&full=1&startID=64751&endID=64752',
-                    'user': 'someuser@mozilla.org',
+                    "time": 15278721560,
+                    "pushid": 64752,
+                    "push_json_url": "https://hg.mozilla.org/integration/autoland/json-pushes?version=2&startID=64751&endID=64752",
+                    "push_full_json_url": "https://hg.mozilla.org/integration/autoland/json-pushes?version=2&full=1&startID=64751&endID=64752",
+                    "user": "someuser@mozilla.org",
                 }
             ],
-            'heads': ['ebe99842f5f8d543e5453ce78b1eae3641830b13'],
-            'repo_url': 'https://hg.mozilla.org/integration/autoland',
+            "heads": ["ebe99842f5f8d543e5453ce78b1eae3641830b13"],
+            "repo_url": "https://hg.mozilla.org/integration/autoland",
         },
     }
 }
+
+# Example of a hg.mozilla.org commit taken from https://hg.mozilla.org/integration/autoland/json-rev/cc1ffa88e12c
+example_commit = {
+    "node": "cc1ffa88e12c75cf047757753589594c41d76ac5",
+    "date": [1534452636.0, 0],
+    "desc": 'Bug 1483600 - Notify "tab-content-frameloader-created" in GeckoView content script. r=jchen\n\nDifferential Revision: https://phabricator.services.mozilla.com/D3546',
+    "backedoutby": "",
+    "branch": "default",
+    "bookmarks": [],
+    "tags": [],
+    "user": "Jane Smith \u003cjsmith@mozilla.com\u003e",
+    "parents": ["07ce0e4ae08d0cd49d8be2c613121b5c84364422"],
+    "phase": "public",
+    "pushid": 67864,
+    "pushdate": [1534452698, 0],
+    "pushuser": "jsmith@mozilla.com",
+    "landingsystem": "lando",
+}
+
+null_source = Source("")
+null_mirror = Mirror("", "")
 
 
 @pytest.fixture
 def memory_queue(monkeypatch):
     """Build an in-memory queue for acceptance tests."""
-    connection = kombu.Connection(transport='memory')
+    connection = kombu.Connection(transport="memory")
+
     def build_connection(*_):
         return connection
 
-    monkeypatch.setattr('monitor.pulse.build_connection', build_connection)
+    monkeypatch.setattr("monitor.pulse.build_connection", build_connection)
 
     # These values have been chosen so that they combine in just the right way
     # to produce a properly named Connection, Queue, and Exchange by the
     # run_pulse_listener() code.
-    monkeypatch.setenv('PULSE_USERNAME', 'foo')
-    monkeypatch.setenv('PULSE_PASSWORD', 'baz')
-    monkeypatch.setenv('PULSE_EXCHANGE', 'queue/foo/bar')
-    monkeypatch.setenv('PULSE_QUEUE_NAME', 'bar')
-    monkeypatch.setenv('PULSE_QUEUE_ROUTING_KEY', 'integration/autoland')
+    monkeypatch.setenv("PULSE_USERNAME", "foo")
+    monkeypatch.setenv("PULSE_PASSWORD", "baz")
+    monkeypatch.setenv("PULSE_EXCHANGE", "queue/foo/bar")
+    monkeypatch.setenv("PULSE_QUEUE_NAME", "bar")
+    monkeypatch.setenv("PULSE_QUEUE_ROUTING_KEY", "integration/autoland")
 
     # This queue name has been constructed from the values above
     # to yield a valid Queue+Exchange combination.
-    yield connection.SimpleQueue('queue/foo/bar')
+    yield connection.SimpleQueue("queue/foo/bar")
 
 
 def replace_function(name, replacement):
@@ -72,8 +100,8 @@ def false(*_):
     return False
 
 
-def empty(iter):
-    return list(iter) == []
+def empty(iterable):
+    return list(iterable) == []
 
 
 def noop(*_, **__):
@@ -86,47 +114,93 @@ def trace(*args, **kwargs):
 
 def test_lag_is_zero_if_commit_in_mirror():
     with replace_function("monitor.main.commit_in_mirror", true):
-        assert determine_commit_replication_lag(None, None, 0).duration == 0
+        status = determine_commit_replication_status(null_source, null_mirror, "aaaa")
+        assert not status.is_stale
+        assert status.seconds_behind == 0
 
 
 def test_lag_is_commit_ts_if_commit_missing():
-    def one_day_ago(*_):
-        return maya.now().subtract(days=1)
+    def five_minutes_ago(*_):
+        return maya.now().subtract(minutes=5)
 
     with replace_function("monitor.main.commit_in_mirror", false), replace_function(
-        "monitor.main.fetch_commit_publication_time", one_day_ago
+        "monitor.main.fetch_commit_publication_time", five_minutes_ago
     ):
-        lag = determine_commit_replication_lag(None, None, 0)
-        assert lag.timedelta.days == 1
+        status = determine_commit_replication_status(null_source, null_mirror, "aaaa")
+        assert status.is_stale
+        assert status.seconds_behind == 300
+
+
+def test_most_lagged_changeset_zero_for_empty_list():
+    status = find_first_lagged_changset(null_source, null_mirror, [])
+    assert not status.is_stale
+    assert status.seconds_behind == 0
+
+
+def test_most_lagged_changeset_fresh_if_none_lagged():
+    def return_fresh(*_):
+        return ReplicationStatus.fresh()
+
+    with replace_function(
+        "monitor.main.determine_commit_replication_status", return_fresh
+    ):
+        status = find_first_lagged_changset(null_source, null_mirror, ["a", "b", "c"])
+        assert not status.is_stale
+
+
+def test_most_lagged_changeset_returns_first_lagged():
+    fresh = ReplicationStatus.fresh()
+    stale = ReplicationStatus.behind_by(10)
+    lag_seq = iter([fresh, fresh, stale])
+
+    def lag_fn(*_):
+        return next(lag_seq)
+
+    with replace_function("monitor.main.determine_commit_replication_status", lag_fn):
+        status = find_first_lagged_changset(null_source, null_mirror, ["a", "b", "c"])
+        assert status.is_stale
+        assert status.seconds_behind == stale.seconds_behind
 
 
 def test_cli_show_lag_for_one_commit():
-    def one_day_ago(*_):
-        return maya.now().subtract(days=1)
+    def delayed_five_minutes(*_):
+        return ReplicationStatus.behind_by(300)
 
-    with replace_function("monitor.main.commit_in_mirror", false), replace_function(
-        "monitor.main.fetch_commit_publication_time", one_day_ago
+    with replace_function(
+        "monitor.cli.determine_commit_replication_status", delayed_five_minutes
     ):
         runner = CliRunner()
         result = runner.invoke(show_lag, ["abcdef"])
         assert result.exit_code == 0
-        assert "replication lag (seconds): 0" in result.output
+        assert "replication lag (seconds): 300" in result.output
 
 
 def test_cli_show_lag_for_repo(memory_queue):
-
-    def five_minutes_ago(*_):
-        return maya.now().subtract(minutes=5)
+    def delayed_five_minutes(*_):
+        return ReplicationStatus.behind_by(300)
 
     def changesets(*_):
-        return ['aaa', 'bbb', 'ccc']
+        return ["aaa", "bbb", "ccc"]
 
-    memory_queue.put(copy.deepcopy(test_message))
+    memory_queue.put(copy.deepcopy(example_message))
 
-    with replace_function("monitor.main.commit_in_mirror", false), replace_function(
-        "monitor.main.fetch_commit_publication_time", five_minutes_ago
+    with replace_function(
+        "monitor.main.determine_commit_replication_status", delayed_five_minutes
     ), replace_function("monitor.hgmo.changesets_for_pushid", changesets):
         runner = CliRunner()
         result = runner.invoke(show_lag)
-        assert result.exit_code == 0
+        assert result.exit_code == 1
         assert "replication lag (seconds): 300" in result.output
+
+
+def test_fetch_commit_publication_time():
+    commit = copy.deepcopy(example_commit)
+
+    # See monitor.utc_hgwebdate() for the data format
+    publication_time_as_epoch, publication_time_offset = 0, 0
+    commit["date"] = [publication_time_as_epoch, publication_time_offset]
+
+    with patch("monitor.hgmo.requests_retry_session") as session:
+        session().get().json.return_value = commit
+        publication_time = fetch_commit_publication_time(null_source, "aaa")
+        assert publication_time.epoch == 0

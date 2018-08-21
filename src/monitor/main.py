@@ -1,23 +1,70 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from typing import NamedTuple
+"""The core routines for this program."""
 
+from typing import List, NamedTuple
+
+from maya import MayaDT, MayaInterval, now
+
+from monitor.hgmo import utc_hgwebdate
 from monitor.util import requests_retry_session
-from maya import now, MayaInterval, MayaDT
 from monitor import hgmo
 
 
 class Source(NamedTuple):
+    """Configuration for a hg.mozilla.org source repository.
+
+    Args:
+        repo_url: The full URL of the source repository.
+    """
+
     repo_url: str
 
 
 class Mirror(NamedTuple):
+    """Configuration for a repository mirror in Phabricator.
+
+    Args:
+        url: The base URL of the Phabricator installation.
+        repo_callsign: The Phabricator callsign for the mirrored repository.
+            e.g. 'MOZILLACENTRAL'
+    """
+
     url: str
     repo_callsign: str
 
 
-def commit_in_mirror(mirror, commit_sha: str):
+class ReplicationStatus(NamedTuple):
+    """Represents a mirrored object's replication status: fresh or stale by X seconds.
+    """
+
+    is_stale: bool
+    seconds_behind: int
+
+    @classmethod
+    def fresh(cls):
+        """Return an instance representing no replication delay."""
+        return cls(is_stale=False, seconds_behind=0)
+
+    @classmethod
+    def behind_by(cls, seconds_behind: int):
+        """Return an instance representing a replication delay of X seconds."""
+        return cls(is_stale=True, seconds_behind=seconds_behind)
+
+
+def stale_since(datetime: MayaDT):
+    """Return the time interval between now and a given point in the past."""
+    return MayaInterval(start=datetime, end=now())
+
+
+def is_stale(dt_interval: MayaInterval) -> bool:
+    """Is the given time interval for a stale or fresh commit?"""
+    return dt_interval.duration > 0
+
+
+def commit_in_mirror(mirror, commit_sha: str) -> bool:
+    """Is the given commit SHA present in the mirrored repository?"""
     # Example URL: https://phabricator.services.mozilla.com/rMOZILLACENTRAL7395257233f2fce9f80a7660cbfb2b91d379b28f
     url = f"{mirror.url}/r{mirror.repo_callsign}{commit_sha}"
     response = requests_retry_session().head(url)
@@ -37,17 +84,50 @@ def commit_in_mirror(mirror, commit_sha: str):
         )
 
 
-def fetch_commit_publication_time(source: Source, commit_sha: str):
+def fetch_commit_publication_time(source: Source, commit_sha: str) -> MayaDT:
+    """Return a commit's publication time in the source repo."""
     changeset_json = hgmo.fetch_changeset(commit_sha, source.repo_url)
-    return MayaDT(changeset_json["date"][0])
+    utc_epoch = utc_hgwebdate(changeset_json["date"])
+    return MayaDT(utc_epoch)
 
 
-def determine_commit_replication_lag(
+def determine_commit_replication_status(
     source: Source, mirror: Mirror, commit_sha: str
-) -> MayaInterval:
+) -> ReplicationStatus:
+    """Return the replication status of a single changeset."""
     if not commit_in_mirror(mirror, commit_sha):
-        return MayaInterval(
-            start=fetch_commit_publication_time(source, commit_sha), end=now()
-        )
+        delay = stale_since(fetch_commit_publication_time(source, commit_sha))
+        return ReplicationStatus.behind_by(delay.timedelta.seconds)
     else:
-        return MayaInterval(start=now(), duration=0)
+        return ReplicationStatus.fresh()
+
+
+def find_first_lagged_changset(
+    source: Source, mirror: Mirror, changesets: List[str]
+) -> ReplicationStatus:
+    """Return the replication delay of the first un-mirrored changeset in a commit list.
+
+    If no commits are delayed it returns a lag of zero duration.
+    """
+    for commit_sha in changesets:
+        status = determine_commit_replication_status(source, mirror, commit_sha)
+        if status.is_stale:
+            # Bail early, we don't need to check any other changesets.
+            return status
+    else:
+        return ReplicationStatus.fresh()
+
+
+def report_replication_lag(mirror: Mirror, replication_status: ReplicationStatus):
+    # TODO report metrics
+    print("replication lag (seconds):", replication_status.seconds_behind)
+
+
+def check_and_report_mirror_delay(changesets, mirror, source):
+    """Check a mirrored repository's replication delay and report the result.
+
+    Returns: ReplicationStatus for the mirror.
+    """
+    mirror_replication_status = find_first_lagged_changset(source, mirror, changesets)
+    report_replication_lag(mirror, mirror_replication_status)
+    return mirror_replication_status
