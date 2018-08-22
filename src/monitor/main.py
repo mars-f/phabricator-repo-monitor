@@ -100,16 +100,11 @@ def find_first_lagged_changset(
         return ReplicationStatus.fresh()
 
 
-def report_replication_lag(mirror: Mirror, replication_status: ReplicationStatus):
-    # TODO report metrics
-    print("replication lag (seconds):", replication_status.seconds_behind)
-
-
-def check_and_report_mirror_delay(changesets, mirror):
+def check_and_report_mirror_delay(changesets, mirror, reporting_function):
     """Check a mirrored repository's replication delay and report the result.
 
     Returns: ReplicationStatus for the mirror.
     """
     mirror_replication_status = find_first_lagged_changset(mirror, changesets)
-    report_replication_lag(mirror, mirror_replication_status)
+    reporting_function(mirror, mirror_replication_status)
     return mirror_replication_status

@@ -8,6 +8,7 @@ import sys
 import click
 
 import monitor.config
+from monitor import reporting
 from monitor.main import determine_commit_replication_status
 from monitor.pulse import run_pulse_listener
 
@@ -33,12 +34,7 @@ def display_lag(debug, node_ids):
     if node_ids:
         for node_id in node_ids:
             status = determine_commit_replication_status(mirror, node_id)
-            if status.is_stale:
-                report = click.style(str(status.seconds_behind), fg="yellow", bold=True)
-            else:
-                report = click.style("0", fg="green", bold=True)
-            click.echo("replication lag (seconds): ", nl=False)
-            click.echo(report)
+            reporting.print_replication_lag(mirror, status)
     else:
         pulse_config = monitor.config.pulse_config_from_environ()
         run_pulse_listener(
@@ -49,7 +45,9 @@ def display_lag(debug, node_ids):
             pulse_config.PULSE_QUEUE_ROUTING_KEY,
             pulse_config.PULSE_QUEUE_READ_TIMEOUT,
             True,
-            worker_args=dict(mirror_config=mirror),
+            worker_args=dict(
+                mirror_config=mirror, reporting_function=reporting.print_replication_lag
+            ),
         )
 
 
@@ -85,5 +83,7 @@ def report_lag(debug, no_send):
         pulse_config.PULSE_QUEUE_ROUTING_KEY,
         pulse_config.PULSE_QUEUE_READ_TIMEOUT,
         no_send,
-        worker_args=dict(mirror_config=mirror),
+        worker_args=dict(
+            mirror_config=mirror, reporting_function=reporting.print_replication_lag
+        ),
     )

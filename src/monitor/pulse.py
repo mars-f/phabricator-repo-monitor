@@ -75,9 +75,10 @@ def process_push_message(body, message, no_send=False, extra_data=None):
     pushdata = pushlog_pushes.pop()
 
     mirror = extra_data["mirror_config"]
+    reporting_fn = extra_data["reporting_function"]
 
     changesets = changesets_for_pushid(pushdata["pushid"], pushdata["push_json_url"])
-    replication_status = check_and_report_mirror_delay(changesets, mirror)
+    replication_status = check_and_report_mirror_delay(changesets, mirror, reporting_fn)
 
     if replication_status.is_stale:
         # Don't ack() the message, leave processing where it is for the next job run.
