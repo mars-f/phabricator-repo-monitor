@@ -11,13 +11,12 @@ from click.testing import CliRunner
 
 from monitor.cli import display_lag
 from monitor.main import (
-    Mirror,
     ReplicationStatus,
-    Source,
     determine_commit_replication_status,
     fetch_commit_publication_time,
     find_first_lagged_changset,
 )
+from monitor.config import Mirror, Source
 
 # This structure is described here:
 # https://mozilla-version-control-tools.readthedocs.io/en/latest/hgmo/notifications.html#common-properties-of-notifications

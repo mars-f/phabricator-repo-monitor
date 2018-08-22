@@ -7,32 +7,10 @@ from typing import List, NamedTuple
 
 from maya import MayaDT, MayaInterval, now
 
+from monitor.config import Mirror, Source
 from monitor.hgmo import utc_hgwebdate
 from monitor.util import requests_retry_session
 from monitor import hgmo
-
-
-class Source(NamedTuple):
-    """Configuration for a hg.mozilla.org source repository.
-
-    Args:
-        repo_url: The full URL of the source repository.
-    """
-
-    repo_url: str
-
-
-class Mirror(NamedTuple):
-    """Configuration for a repository mirror in Phabricator.
-
-    Args:
-        url: The base URL of the Phabricator installation.
-        repo_callsign: The Phabricator callsign for the mirrored repository.
-            e.g. 'MOZILLACENTRAL'
-    """
-
-    url: str
-    repo_callsign: str
 
 
 class ReplicationStatus(NamedTuple):

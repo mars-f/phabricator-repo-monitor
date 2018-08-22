@@ -4,14 +4,36 @@
 """Functions for reading application configuration values"""
 import os
 import types
+from typing import NamedTuple
 
-import monitor.main
+
+class Source(NamedTuple):
+    """Configuration for a hg.mozilla.org source repository.
+
+    Args:
+        repo_url: The full URL of the source repository.
+    """
+
+    repo_url: str
+
+
+class Mirror(NamedTuple):
+    """Configuration for a repository mirror in Phabricator.
+
+    Args:
+        url: The base URL of the Phabricator installation.
+        repo_callsign: The Phabricator callsign for the mirrored repository.
+            e.g. 'MOZILLACENTRAL'
+    """
+
+    url: str
+    repo_callsign: str
 
 
 def repositories_from_environ():
     """Return a Source and Mirror repository configuration from os.environ."""
-    source = monitor.main.Source(os.environ["SOURCE_REPOSITORY"])
-    mirror = monitor.main.Mirror(
+    source = Source(os.environ["SOURCE_REPOSITORY"])
+    mirror = Mirror(
         os.environ.get("PHABRICATOR_URL", "https://phabricator.services.mozilla.com"),
         os.environ["REPOSITORY_CALLSIGN"],
     )
