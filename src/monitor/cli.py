@@ -47,7 +47,7 @@ def display_lag(debug, node_ids):
             pulse_config.PULSE_EXCHANGE,
             pulse_config.PULSE_QUEUE_NAME,
             pulse_config.PULSE_QUEUE_ROUTING_KEY,
-            0,
+            pulse_config.PULSE_QUEUE_READ_TIMEOUT,
             True,
             worker_args=dict(mirror_config=mirror),
         )
@@ -83,7 +83,7 @@ def report_lag(debug, no_send):
         pulse_config.PULSE_EXCHANGE,
         pulse_config.PULSE_QUEUE_NAME,
         pulse_config.PULSE_QUEUE_ROUTING_KEY,
-        0,
+        pulse_config.PULSE_QUEUE_READ_TIMEOUT,
         no_send,
         worker_args=dict(mirror_config=mirror),
     )

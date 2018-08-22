@@ -43,4 +43,5 @@ def pulse_config_from_environ():
         PULSE_EXCHANGE=os.environ.get("PULSE_EXCHANGE", "exchange/hgpushes/v2"),
         PULSE_QUEUE_NAME=os.environ["PULSE_QUEUE_NAME"],
         PULSE_QUEUE_ROUTING_KEY=os.environ["PULSE_QUEUE_ROUTING_KEY"],
+        PULSE_QUEUE_READ_TIMEOUT=os.environ.get("PULSE_QUEUE_READ_TIMEOUT", 1.0),
     )
