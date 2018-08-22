@@ -16,7 +16,7 @@ from monitor.main import (
     fetch_commit_publication_time,
     find_first_lagged_changset,
 )
-from monitor.config import Mirror, Source
+from monitor.config import Mirror
 
 # This structure is described here:
 # https://mozilla-version-control-tools.readthedocs.io/en/latest/hgmo/notifications.html#common-properties-of-notifications
@@ -36,7 +36,7 @@ example_message = {
                 }
             ],
             "heads": ["ebe99842f5f8d543e5453ce78b1eae3641830b13"],
-            "repo_url": "https://hg.mozilla.org/integration/autoland",
+            "source_repository_url": "https://hg.mozilla.org/integration/autoland",
         },
     }
 }
@@ -59,8 +59,7 @@ example_commit = {
     "landingsystem": "lando",
 }
 
-null_source = Source("")
-null_mirror = Mirror("", "")
+null_mirror = Mirror("", "", "")
 
 
 @pytest.fixture(autouse=True)
@@ -119,7 +118,7 @@ def trace(*args, **kwargs):
 
 def test_lag_is_zero_if_commit_in_mirror():
     with replace_function("monitor.main.commit_in_mirror", true):
-        status = determine_commit_replication_status(null_source, null_mirror, "aaaa")
+        status = determine_commit_replication_status(null_mirror, "aaaa")
         assert not status.is_stale
         assert status.seconds_behind == 0
 
@@ -131,13 +130,13 @@ def test_lag_is_commit_ts_if_commit_missing():
     with replace_function("monitor.main.commit_in_mirror", false), replace_function(
         "monitor.main.fetch_commit_publication_time", five_minutes_ago
     ):
-        status = determine_commit_replication_status(null_source, null_mirror, "aaaa")
+        status = determine_commit_replication_status(null_mirror, "aaaa")
         assert status.is_stale
         assert status.seconds_behind == 300
 
 
 def test_most_lagged_changeset_zero_for_empty_list():
-    status = find_first_lagged_changset(null_source, null_mirror, [])
+    status = find_first_lagged_changset(null_mirror, [])
     assert not status.is_stale
     assert status.seconds_behind == 0
 
@@ -149,7 +148,7 @@ def test_most_lagged_changeset_fresh_if_none_lagged():
     with replace_function(
         "monitor.main.determine_commit_replication_status", return_fresh
     ):
-        status = find_first_lagged_changset(null_source, null_mirror, ["a", "b", "c"])
+        status = find_first_lagged_changset(null_mirror, ["a", "b", "c"])
         assert not status.is_stale
 
 
@@ -162,7 +161,7 @@ def test_most_lagged_changeset_returns_first_lagged():
         return next(lag_seq)
 
     with replace_function("monitor.main.determine_commit_replication_status", lag_fn):
-        status = find_first_lagged_changset(null_source, null_mirror, ["a", "b", "c"])
+        status = find_first_lagged_changset(null_mirror, ["a", "b", "c"])
         assert status.is_stale
         assert status.seconds_behind == stale.seconds_behind
 
@@ -207,5 +206,5 @@ def test_fetch_commit_publication_time():
 
     with patch("monitor.hgmo.requests_retry_session") as session:
         session().get().json.return_value = commit
-        publication_time = fetch_commit_publication_time(null_source, "aaa")
+        publication_time = fetch_commit_publication_time(null_mirror, "aaa")
         assert publication_time.epoch == 0

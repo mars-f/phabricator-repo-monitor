@@ -74,11 +74,10 @@ def process_push_message(body, message, no_send=False, extra_data=None):
 
     pushdata = pushlog_pushes.pop()
 
-    source = extra_data["source_repository_config"]
     mirror = extra_data["mirror_config"]
 
     changesets = changesets_for_pushid(pushdata["pushid"], pushdata["push_json_url"])
-    replication_status = check_and_report_mirror_delay(changesets, mirror, source)
+    replication_status = check_and_report_mirror_delay(changesets, mirror)
 
     if replication_status.is_stale:
         # Don't ack() the message, leave processing where it is for the next job run.
@@ -133,7 +132,9 @@ def run_pulse_listener(
         queue.queue_declare()
         queue.queue_bind()
 
-        callback = partial(process_push_message, no_send=no_send, extra_data=worker_args)
+        callback = partial(
+            process_push_message, no_send=no_send, extra_data=worker_args
+        )
 
         # Pass auto_declare=False so that Consumer does not try to declare the
         # exchange.  Declaring exchanges is not allowed by the Pulse server.

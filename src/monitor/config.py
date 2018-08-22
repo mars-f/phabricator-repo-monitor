@@ -7,37 +7,29 @@ import types
 from typing import NamedTuple
 
 
-class Source(NamedTuple):
-    """Configuration for a hg.mozilla.org source repository.
-
-    Args:
-        repo_url: The full URL of the source repository.
-    """
-
-    repo_url: str
-
-
 class Mirror(NamedTuple):
-    """Configuration for a repository mirror in Phabricator.
+    """Configuration for a hg.mozilla.org source repository mirrored in Phabricator.
 
     Args:
+        source_repository_url: The full URL of the source repository.
         url: The base URL of the Phabricator installation.
         repo_callsign: The Phabricator callsign for the mirrored repository.
             e.g. 'MOZILLACENTRAL'
     """
 
+    source_repository_url: str
     url: str
     repo_callsign: str
 
 
 def repositories_from_environ():
-    """Return a Source and Mirror repository configuration from os.environ."""
-    source = Source(os.environ["SOURCE_REPOSITORY"])
+    """Return a Mirror repository configuration from os.environ."""
     mirror = Mirror(
+        os.environ["SOURCE_REPOSITORY"],
         os.environ.get("PHABRICATOR_URL", "https://phabricator.services.mozilla.com"),
         os.environ["REPOSITORY_CALLSIGN"],
     )
-    return source, mirror
+    return mirror
 
 
 def pulse_config_from_environ():

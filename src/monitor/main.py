@@ -7,7 +7,7 @@ from typing import List, NamedTuple
 
 from maya import MayaDT, MayaInterval, now
 
-from monitor.config import Mirror, Source
+from monitor.config import Mirror
 from monitor.hgmo import utc_hgwebdate
 from monitor.util import requests_retry_session
 from monitor import hgmo
@@ -62,33 +62,37 @@ def commit_in_mirror(mirror, commit_sha: str) -> bool:
         )
 
 
-def fetch_commit_publication_time(source: Source, commit_sha: str) -> MayaDT:
+def fetch_commit_publication_time(
+    source_repository_url: str, commit_sha: str
+) -> MayaDT:
     """Return a commit's publication time in the source repo."""
-    changeset_json = hgmo.fetch_changeset(commit_sha, source.repo_url)
+    changeset_json = hgmo.fetch_changeset(commit_sha, source_repository_url)
     utc_epoch = utc_hgwebdate(changeset_json["date"])
     return MayaDT(utc_epoch)
 
 
 def determine_commit_replication_status(
-    source: Source, mirror: Mirror, commit_sha: str
+    mirror: Mirror, commit_sha: str
 ) -> ReplicationStatus:
     """Return the replication status of a single changeset."""
     if not commit_in_mirror(mirror, commit_sha):
-        delay = stale_since(fetch_commit_publication_time(source, commit_sha))
+        delay = stale_since(
+            fetch_commit_publication_time(mirror.source_repository_url, commit_sha)
+        )
         return ReplicationStatus.behind_by(delay.timedelta.seconds)
     else:
         return ReplicationStatus.fresh()
 
 
 def find_first_lagged_changset(
-    source: Source, mirror: Mirror, changesets: List[str]
+    mirror: Mirror, changesets: List[str]
 ) -> ReplicationStatus:
     """Return the replication delay of the first un-mirrored changeset in a commit list.
 
     If no commits are delayed it returns a lag of zero duration.
     """
     for commit_sha in changesets:
-        status = determine_commit_replication_status(source, mirror, commit_sha)
+        status = determine_commit_replication_status(mirror, commit_sha)
         if status.is_stale:
             # Bail early, we don't need to check any other changesets.
             return status
@@ -101,11 +105,11 @@ def report_replication_lag(mirror: Mirror, replication_status: ReplicationStatus
     print("replication lag (seconds):", replication_status.seconds_behind)
 
 
-def check_and_report_mirror_delay(changesets, mirror, source):
+def check_and_report_mirror_delay(changesets, mirror):
     """Check a mirrored repository's replication delay and report the result.
 
     Returns: ReplicationStatus for the mirror.
     """
-    mirror_replication_status = find_first_lagged_changset(source, mirror, changesets)
+    mirror_replication_status = find_first_lagged_changset(mirror, changesets)
     report_replication_lag(mirror, mirror_replication_status)
     return mirror_replication_status

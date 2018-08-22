@@ -28,11 +28,11 @@ def display_lag(debug, node_ids):
     if debug:
         logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-    source, mirror = monitor.config.repositories_from_environ()
+    mirror = monitor.config.repositories_from_environ()
 
     if node_ids:
         for node_id in node_ids:
-            status = determine_commit_replication_status(source, mirror, node_id)
+            status = determine_commit_replication_status(mirror, node_id)
             if status.is_stale:
                 report = click.style(str(status.seconds_behind), fg="yellow", bold=True)
             else:
@@ -49,5 +49,5 @@ def display_lag(debug, node_ids):
             pulse_config.PULSE_QUEUE_ROUTING_KEY,
             0,
             True,
-            worker_args=dict(source_repository_config=source, mirror_config=mirror),
+            worker_args=dict(mirror_config=mirror),
         )
