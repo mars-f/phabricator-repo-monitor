@@ -7,8 +7,7 @@ import sys
 
 import click
 
-import monitor.config
-from monitor import reporting
+from monitor import config, reporting
 from monitor.main import determine_commit_replication_status
 from monitor.pulse import run_pulse_listener
 
@@ -29,14 +28,14 @@ def display_lag(debug, node_ids):
     if debug:
         logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-    mirror = monitor.config.mirror_config_from_environ()
+    mirror = config.mirror_config_from_environ()
 
     if node_ids:
         for node_id in node_ids:
             status = determine_commit_replication_status(mirror, node_id)
             reporting.print_replication_lag(mirror, status)
     else:
-        pulse_config = monitor.config.pulse_config_from_environ()
+        pulse_config = config.pulse_config_from_environ()
         run_pulse_listener(
             pulse_config.PULSE_USERNAME,
             pulse_config.PULSE_PASSWORD,
@@ -73,8 +72,8 @@ def report_lag(debug, no_send):
 
     logging.basicConfig(stream=sys.stdout, level=log_level)
 
-    mirror = monitor.config.mirror_config_from_environ()
-    pulse_config = monitor.config.pulse_config_from_environ()
+    mirror = config.mirror_config_from_environ()
+    pulse_config = config.pulse_config_from_environ()
     run_pulse_listener(
         pulse_config.PULSE_USERNAME,
         pulse_config.PULSE_PASSWORD,
