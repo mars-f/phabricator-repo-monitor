@@ -51,3 +51,39 @@ def display_lag(debug, node_ids):
             True,
             worker_args=dict(mirror_config=mirror),
         )
+
+
+@click.command()
+@click.option(
+    "--debug",
+    envvar="DEBUG",
+    is_flag=True,
+    help="Print debugging messages about the script's progress.",
+)
+@click.option(
+    "--no-send",
+    is_flag=True,
+    help="Do not drain any queues or send any data. Useful for debugging.",
+)
+def report_lag(debug, no_send):
+    """Measure and report repository replication lag to a metrics service."""
+
+    if debug:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.INFO
+
+    logging.basicConfig(stream=sys.stdout, level=log_level)
+
+    mirror = monitor.config.mirror_config_from_environ()
+    pulse_config = monitor.config.pulse_config_from_environ()
+    run_pulse_listener(
+        pulse_config.PULSE_USERNAME,
+        pulse_config.PULSE_PASSWORD,
+        pulse_config.PULSE_EXCHANGE,
+        pulse_config.PULSE_QUEUE_NAME,
+        pulse_config.PULSE_QUEUE_ROUTING_KEY,
+        0,
+        no_send,
+        worker_args=dict(mirror_config=mirror),
+    )

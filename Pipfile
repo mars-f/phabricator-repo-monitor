@@ -23,3 +23,4 @@ allow_prereleases = true
 
 [scripts]
 display_lag = "python bin/display-lag"
+report_lag = "python bin/report-lag"
