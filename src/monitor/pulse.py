@@ -19,7 +19,7 @@ from kombu import Connection, Exchange, Queue
 # from committelemetry.telemetry import payload_for_changeset, send_ping
 # from committelemetry.sentry import client as sentry   # FIXME sentry integration
 from monitor.hgmo import changesets_for_pushid
-from monitor.main import Mirror, Source, check_and_report_mirror_delay
+from monitor.main import check_and_report_mirror_delay
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def noop(*args, **kwargs):
     return None
 
 
-def process_push_message(body, message, no_send=False):
+def process_push_message(body, message, no_send=False, extra_data=None):
     """Process a hg push message from Mozilla Pulse.
 
     The message body structure is described by https://mozilla-version-control-tools.readthedocs.io/en/latest/hgmo/notifications.html#common-properties-of-notifications
@@ -74,8 +74,8 @@ def process_push_message(body, message, no_send=False):
 
     pushdata = pushlog_pushes.pop()
 
-    source = Source("")
-    mirror = Mirror("", "")
+    source = extra_data["source_repository_config"]
+    mirror = extra_data["mirror_config"]
 
     changesets = changesets_for_pushid(pushdata["pushid"], pushdata["push_json_url"])
     replication_status = check_and_report_mirror_delay(changesets, mirror, source)
@@ -90,7 +90,14 @@ def process_push_message(body, message, no_send=False):
 
 
 def run_pulse_listener(
-    username, password, exchange_name, queue_name, routing_key, timeout, no_send
+    username,
+    password,
+    exchange_name,
+    queue_name,
+    routing_key,
+    timeout,
+    no_send,
+    worker_args=None,
 ):
     """Run a Pulse message queue listener."""
     connection = build_connection(password, username)
@@ -126,14 +133,14 @@ def run_pulse_listener(
         queue.queue_declare()
         queue.queue_bind()
 
-        callback = partial(process_push_message, no_send=no_send)
+        callback = partial(process_push_message, no_send=no_send, extra_data=worker_args)
 
         # Pass auto_declare=False so that Consumer does not try to declare the
         # exchange.  Declaring exchanges is not allowed by the Pulse server.
         with connection.Consumer(queue, callbacks=[callback], auto_declare=False):
 
             if no_send:
-                log.info("transmission of ping data has been disabled")
+                log.info("transmission of monitoring data has been disabled")
                 log.info("message acks has been disabled")
 
             log.info("reading messages")

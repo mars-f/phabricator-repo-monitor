@@ -3,12 +3,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import logging
-import os
 import sys
 
 import click
 
-from monitor.main import Mirror, Source, determine_commit_replication_status
+import monitor.config
+from monitor.main import determine_commit_replication_status
 from monitor.pulse import run_pulse_listener
 
 
@@ -28,10 +28,7 @@ def display_lag(debug, node_ids):
     if debug:
         logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-    source = Source(repo_url="https://hg.mozilla.org/integration/autoland/")
-    mirror = Mirror(
-        url="https://phabricator.services.mozilla.com", repo_callsign="MOZILLACENTRAL"
-    )
+    source, mirror = monitor.config.repositories_from_environ()
 
     if node_ids:
         for node_id in node_ids:
@@ -43,12 +40,14 @@ def display_lag(debug, node_ids):
             click.echo("replication lag (seconds): ", nl=False)
             click.echo(report)
     else:
+        pulse_config = monitor.config.pulse_config_from_environ()
         run_pulse_listener(
-            os.environ["PULSE_USERNAME"],
-            os.environ["PULSE_PASSWORD"],
-            os.environ["PULSE_EXCHANGE"],
-            os.environ["PULSE_QUEUE_NAME"],
-            os.environ["PULSE_QUEUE_ROUTING_KEY"],
+            pulse_config.PULSE_USERNAME,
+            pulse_config.PULSE_PASSWORD,
+            pulse_config.PULSE_EXCHANGE,
+            pulse_config.PULSE_QUEUE_NAME,
+            pulse_config.PULSE_QUEUE_ROUTING_KEY,
             0,
             True,
+            worker_args=dict(source_repository_config=source, mirror_config=mirror),
         )

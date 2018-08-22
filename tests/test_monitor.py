@@ -64,6 +64,12 @@ null_source = Source("")
 null_mirror = Mirror("", "")
 
 
+@pytest.fixture(autouse=True)
+def null_config(monkeypatch):
+    monkeypatch.setenv("SOURCE_REPOSITORY", "")
+    monkeypatch.setenv("REPOSITORY_CALLSIGN", "")
+
+
 @pytest.fixture
 def memory_queue(monkeypatch):
     """Build an in-memory queue for acceptance tests."""
