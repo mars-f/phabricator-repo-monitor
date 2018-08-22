@@ -9,7 +9,7 @@ import maya
 import pytest
 from click.testing import CliRunner
 
-from monitor.cli import show_lag
+from monitor.cli import display_lag
 from monitor.main import (
     Mirror,
     ReplicationStatus,
@@ -162,7 +162,7 @@ def test_most_lagged_changeset_returns_first_lagged():
         assert status.seconds_behind == stale.seconds_behind
 
 
-def test_cli_show_lag_for_one_commit():
+def test_cli_display_lag_for_one_commit():
     def delayed_five_minutes(*_):
         return ReplicationStatus.behind_by(300)
 
@@ -170,12 +170,12 @@ def test_cli_show_lag_for_one_commit():
         "monitor.cli.determine_commit_replication_status", delayed_five_minutes
     ):
         runner = CliRunner()
-        result = runner.invoke(show_lag, ["abcdef"])
+        result = runner.invoke(display_lag, ["abcdef"])
         assert result.exit_code == 0
         assert "replication lag (seconds): 300" in result.output
 
 
-def test_cli_show_lag_for_repo(memory_queue):
+def test_cli_display_lag_for_repo(memory_queue):
     def delayed_five_minutes(*_):
         return ReplicationStatus.behind_by(300)
 
@@ -188,7 +188,7 @@ def test_cli_show_lag_for_repo(memory_queue):
         "monitor.main.determine_commit_replication_status", delayed_five_minutes
     ), replace_function("monitor.hgmo.changesets_for_pushid", changesets):
         runner = CliRunner()
-        result = runner.invoke(show_lag)
+        result = runner.invoke(display_lag)
         assert result.exit_code == 1
         assert "replication lag (seconds): 300" in result.output
 

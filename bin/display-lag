@@ -4,4 +4,4 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import monitor.cli
-monitor.cli.show_lag()
+monitor.cli.display_lag()

@@ -20,7 +20,7 @@ from monitor.pulse import run_pulse_listener
     help="Print debugging messages about the script's progress.",
 )
 @click.argument("node_ids", nargs=-1)
-def show_lag(debug, node_ids):
+def display_lag(debug, node_ids):
     """Display the replication lag for a repo or an individual commit.
 
     Does not drain any queues or send any data.

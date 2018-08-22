@@ -22,4 +22,4 @@ python_version = "3.6.5"
 allow_prereleases = true
 
 [scripts]
-show_lag = "python bin/show-lag"
+display_lag = "python bin/display-lag"
