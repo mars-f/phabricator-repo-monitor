@@ -22,7 +22,7 @@ class Mirror(NamedTuple):
     repo_callsign: str
 
 
-def repositories_from_environ():
+def mirror_config_from_environ():
     """Return a Mirror repository configuration from os.environ."""
     mirror = Mirror(
         os.environ["SOURCE_REPOSITORY"],

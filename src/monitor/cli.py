@@ -28,7 +28,7 @@ def display_lag(debug, node_ids):
     if debug:
         logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-    mirror = monitor.config.repositories_from_environ()
+    mirror = monitor.config.mirror_config_from_environ()
 
     if node_ids:
         for node_id in node_ids:
