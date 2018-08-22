@@ -6,6 +6,7 @@ import logging
 import sys
 
 import click
+import datadog
 
 from monitor import config, reporting
 from monitor.main import determine_commit_replication_status
@@ -72,6 +73,12 @@ def report_lag(debug, no_send):
 
     logging.basicConfig(stream=sys.stdout, level=log_level)
 
+    if no_send:
+        reporting_function = reporting.print_replication_lag
+    else:
+        datadog.initialize()
+        reporting_function = reporting.report_to_statsd
+
     mirror = config.mirror_config_from_environ()
     pulse_config = config.pulse_config_from_environ()
     run_pulse_listener(
@@ -82,7 +89,5 @@ def report_lag(debug, no_send):
         pulse_config.PULSE_QUEUE_ROUTING_KEY,
         pulse_config.PULSE_QUEUE_READ_TIMEOUT,
         no_send,
-        worker_args=dict(
-            mirror_config=mirror, reporting_function=reporting.print_replication_lag
-        ),
+        worker_args=dict(mirror_config=mirror, reporting_function=reporting_function),
     )

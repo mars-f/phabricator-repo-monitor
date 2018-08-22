@@ -3,7 +3,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Functions for reporting this program's results"""
 import click
+from datadog import statsd
 
+from monitor.config import Mirror
 from monitor.main import ReplicationStatus
 
 
@@ -17,3 +19,11 @@ def print_replication_lag(_, replication_status: ReplicationStatus):
 
     click.echo("replication lag (seconds): ", nl=False)
     click.echo(report)
+
+
+def report_to_statsd(mirror: Mirror, replication_status: ReplicationStatus):
+    repo_label = mirror.repo_callsign.lower()
+    statsd.gauge(
+        f"phabricator.repository.{repo_label}.seconds_behind_source_repo",
+        replication_status.seconds_behind,
+    )

@@ -17,11 +17,12 @@ from monitor.main import (
     find_first_lagged_changset,
 )
 from monitor.config import Mirror
-
 # This structure is described here:
 # https://mozilla-version-control-tools.readthedocs.io/en/latest/hgmo/notifications.html#common-properties-of-notifications
 # Example messages can be collected from this URL:
 # https://tools.taskcluster.net/pulse-inspector?bindings[0][exchange]=exchange%2Fhgpushes%2Fv2&bindings[0][routingKeyPattern]=%23
+from monitor.reporting import report_to_statsd
+
 example_message = {
     "payload": {
         "type": "changegroup.1",
@@ -208,3 +209,17 @@ def test_fetch_commit_publication_time():
         session().get().json.return_value = commit
         publication_time = fetch_commit_publication_time(null_mirror, "aaa")
         assert publication_time.epoch == 0
+
+
+def test_report_to_statsd():
+    mirror = Mirror("", "", "TESTREPO")
+    expected_stat_label = f"phabricator.repository.testrepo.seconds_behind_source_repo"
+
+    status = ReplicationStatus.behind_by(5)
+    expected_reported_delay = 5
+
+    with patch("monitor.reporting.statsd") as statsd:
+        report_to_statsd(mirror, status)
+        statsd.gauge.assert_called_once_with(
+            expected_stat_label, expected_reported_delay
+        )
