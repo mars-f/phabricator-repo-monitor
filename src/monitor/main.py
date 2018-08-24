@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """The core routines for this program."""
-
+import logging
 from typing import List, NamedTuple
 
 from maya import MayaDT, MayaInterval, now
@@ -11,6 +11,8 @@ from monitor.config import Mirror
 from monitor.hgmo import utc_hgwebdate
 from monitor.util import requests_retry_session
 from monitor import hgmo
+
+log = logging.getLogger(__name__)
 
 
 class ReplicationStatus(NamedTuple):
@@ -93,6 +95,7 @@ def find_first_lagged_changset(
     """
     for commit_sha in changesets:
         status = determine_commit_replication_status(mirror, commit_sha)
+        log.info(f"replication delay for changeset {commit_sha}: {status.seconds_behind} seconds")
         if status.is_stale:
             # Bail early, we don't need to check any other changesets.
             return status
