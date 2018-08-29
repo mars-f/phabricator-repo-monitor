@@ -29,6 +29,6 @@ def report_to_statsd(mirror: Mirror, replication_status: ReplicationStatus):
     repo_label = mirror.repo_callsign.lower()
     log.debug("sending to datadog: " + f"phabricator.repository.{repo_label}.seconds_behind_source_repo " + str(replication_status.seconds_behind))
     statsd.gauge(
-        f"phabricator.repository.{repo_label}.seconds_behind_source_repo",
+        "phabricator.repository.mozillacentral.seconds_behind_source_repo",
         replication_status.seconds_behind,
     )
