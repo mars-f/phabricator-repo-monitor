@@ -95,7 +95,9 @@ def find_first_lagged_changset(
     """
     for commit_sha in changesets:
         status = determine_commit_replication_status(mirror, commit_sha)
-        log.info(f"replication delay for changeset {commit_sha}: {status.seconds_behind} seconds")
+        log.info(
+            f"replication delay for changeset {commit_sha}: {status.seconds_behind} seconds"
+        )
         if status.is_stale:
             # Bail early, we don't need to check any other changesets.
             return status

@@ -98,6 +98,7 @@ def run_pulse_listener(
     timeout,
     no_send,
     worker_args=None,
+    empty_queue_callback=None,
 ):
     """Run a Pulse message queue listener."""
     connection = build_connection(password, username)
@@ -149,7 +150,9 @@ def run_pulse_listener(
             try:
                 connection.drain_events(timeout=timeout)
             except socket.timeout:
-                log.info("message queue is empty, nothing to do")
+                log.info("message queue is empty")
+                if empty_queue_callback:
+                    empty_queue_callback()
 
     log.info("done")
 

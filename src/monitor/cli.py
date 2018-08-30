@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+import functools
 import logging
 import sys
 
@@ -73,14 +73,19 @@ def report_lag(debug, no_send):
 
     logging.basicConfig(stream=sys.stdout, level=log_level)
 
+    mirror = config.mirror_config_from_environ()
+    pulse_config = config.pulse_config_from_environ()
+
     if no_send:
         reporting_function = reporting.print_replication_lag
+        empty_queue_function = None
     else:
         datadog.initialize()
         reporting_function = reporting.report_to_statsd
+        empty_queue_function = functools.partial(
+            reporting.report_all_caught_up_to_statsd, mirror
+        )
 
-    mirror = config.mirror_config_from_environ()
-    pulse_config = config.pulse_config_from_environ()
     run_pulse_listener(
         pulse_config.PULSE_USERNAME,
         pulse_config.PULSE_PASSWORD,
@@ -90,4 +95,5 @@ def report_lag(debug, no_send):
         pulse_config.PULSE_QUEUE_READ_TIMEOUT,
         no_send,
         worker_args=dict(mirror_config=mirror, reporting_function=reporting_function),
+        empty_queue_callback=empty_queue_function,
     )

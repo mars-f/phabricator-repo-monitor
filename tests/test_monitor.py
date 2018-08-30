@@ -2,14 +2,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import copy
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import kombu as kombu
 import maya
 import pytest
 from click.testing import CliRunner
 
-from monitor.cli import display_lag
+from monitor.cli import display_lag, report_lag
 from monitor.main import (
     ReplicationStatus,
     determine_commit_replication_status,
@@ -196,6 +196,15 @@ def test_cli_display_lag_for_repo(memory_queue):
         result = runner.invoke(display_lag)
         assert result.exit_code == 1
         assert "replication lag (seconds): 300" in result.output
+
+
+def test_cli_report_no_lag_for_repo_if_queue_empty(memory_queue):
+    with patch("monitor.reporting.report_to_statsd") as report_to_statsd:
+        runner = CliRunner()
+        result = runner.invoke(report_lag)
+
+        assert result.exit_code == 0
+        report_to_statsd.assert_called_once_with(ANY, ReplicationStatus.fresh())
 
 
 def test_fetch_commit_publication_time():
