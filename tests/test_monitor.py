@@ -198,6 +198,28 @@ def test_cli_display_lag_for_repo(memory_queue):
         assert "replication lag (seconds): 300" in result.output
 
 
+def test_cli_report_lag_for_repo(memory_queue):
+    delay = ReplicationStatus.behind_by(300)
+
+    def delayed_five_minutes(*_):
+        return delay
+
+    def changesets(*_):
+        return ["aaa", "bbb", "ccc"]
+
+    memory_queue.put(copy.deepcopy(example_message))
+
+    with replace_function(
+        "monitor.main.determine_commit_replication_status", delayed_five_minutes
+    ), replace_function("monitor.hgmo.changesets_for_pushid", changesets), patch(
+        "monitor.reporting.report_to_statsd"
+    ) as report_to_statsd:
+        runner = CliRunner()
+        result = runner.invoke(report_lag)
+        assert result.exit_code == 1
+        report_to_statsd.assert_called_once_with(ANY, delay)
+
+
 def test_cli_report_no_lag_for_repo_if_queue_empty(memory_queue):
     with patch("monitor.reporting.report_to_statsd") as report_to_statsd:
         runner = CliRunner()
