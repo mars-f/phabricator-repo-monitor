@@ -12,11 +12,8 @@ import sys
 from contextlib import closing
 from functools import partial
 
-# from datadog import statsd    # FIXME datadog
 from kombu import Connection, Exchange, Queue
 
-# from committelemetry.hgmo import changesets_for_pushid
-# from committelemetry.telemetry import payload_for_changeset, send_ping
 # from committelemetry.sentry import client as sentry   # FIXME sentry integration
 from monitor.hgmo import changesets_for_pushid
 from monitor.main import check_and_report_mirror_delay
