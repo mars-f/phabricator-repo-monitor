@@ -27,13 +27,13 @@ def print_replication_lag(_, replication_status: ReplicationStatus):
 
 def report_to_statsd(mirror: Mirror, replication_status: ReplicationStatus):
     repo_label = mirror.repo_callsign.lower()
-    log.debug(
-        "sending to datadog: "
+    log.info(
+        "reporting lag: "
         + f"phabricator.repository.{repo_label}.seconds_behind_source_repo "
         + str(replication_status.seconds_behind)
     )
     statsd.gauge(
-        "phabricator.repository.mozillacentral.seconds_behind_source_repo",
+        f"phabricator.repository.{repo_label}.seconds_behind_source_repo",
         replication_status.seconds_behind,
     )
 
