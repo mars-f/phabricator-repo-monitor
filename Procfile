@@ -1,0 +1,1 @@
+monitor: bin/report-lag

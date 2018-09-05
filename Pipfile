@@ -15,6 +15,7 @@ black = "==18.6b4"
 tzlocal = "==1.5.1"
 kombu = "*"
 datadog = "*"
+apscheduler = "*"
 
 [requires]
 python_version = "3.6.5"

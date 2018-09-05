@@ -5,6 +5,7 @@ import functools
 import logging
 import sys
 
+from apscheduler.schedulers.blocking import BlockingScheduler
 import click
 import datadog
 
@@ -86,14 +87,26 @@ def report_lag(debug, no_send):
             reporting.report_all_caught_up_to_statsd, mirror
         )
 
-    run_pulse_listener(
-        pulse_config.PULSE_USERNAME,
-        pulse_config.PULSE_PASSWORD,
-        pulse_config.PULSE_EXCHANGE,
-        pulse_config.PULSE_QUEUE_NAME,
-        pulse_config.PULSE_QUEUE_ROUTING_KEY,
-        pulse_config.PULSE_QUEUE_READ_TIMEOUT,
-        no_send,
-        worker_args=dict(mirror_config=mirror, reporting_function=reporting_function),
-        empty_queue_callback=empty_queue_function,
-    )
+    def job():
+        run_pulse_listener(
+            pulse_config.PULSE_USERNAME,
+            pulse_config.PULSE_PASSWORD,
+            pulse_config.PULSE_EXCHANGE,
+            pulse_config.PULSE_QUEUE_NAME,
+            pulse_config.PULSE_QUEUE_ROUTING_KEY,
+            pulse_config.PULSE_QUEUE_READ_TIMEOUT,
+            no_send,
+            worker_args=dict(
+                mirror_config=mirror, reporting_function=reporting_function
+            ),
+            empty_queue_callback=empty_queue_function,
+        )
+
+    sched = BlockingScheduler()
+
+    # Run once right away, then run at intervals
+    sched.add_job(job)
+    sched.add_job(job, 'interval', minutes=5)
+
+    # This does not return
+    sched.start()

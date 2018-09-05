@@ -8,6 +8,7 @@ import kombu as kombu
 import maya
 import pytest
 from click.testing import CliRunner
+from apscheduler.schedulers.base import BaseScheduler
 
 from monitor.cli import display_lag, report_lag
 from monitor.main import (
@@ -91,6 +92,24 @@ def memory_queue(monkeypatch):
     # This queue name has been constructed from the values above
     # to yield a valid Queue+Exchange combination.
     yield connection.SimpleQueue("queue/foo/bar")
+
+
+@pytest.fixture(autouse=True)
+def runonce_scheduler(monkeypatch):
+    """Replace APScheduler BlockingScheduler so the program exits when done."""
+    class RunOnceScheduler(BaseScheduler):
+        _job = None
+
+        def wakeup(self):
+            self._job()
+
+        def shutdown(self, wait=False):
+            super(RunOnceScheduler, self).shutdown(wait)
+
+        def add_job(self, func, *_, **__):
+            self._job = func
+
+    monkeypatch.setattr("monitor.cli.BlockingScheduler", RunOnceScheduler)
 
 
 def replace_function(name, replacement):
