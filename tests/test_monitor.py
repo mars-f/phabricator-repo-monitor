@@ -97,6 +97,7 @@ def memory_queue(monkeypatch):
 @pytest.fixture(autouse=True)
 def runonce_scheduler(monkeypatch):
     """Replace APScheduler BlockingScheduler so the program exits when done."""
+
     class RunOnceScheduler(BaseScheduler):
         _job = None
 

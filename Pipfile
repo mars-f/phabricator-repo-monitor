@@ -16,6 +16,7 @@ tzlocal = "==1.5.1"
 kombu = "*"
 datadog = "*"
 apscheduler = "*"
+raven = "*"
 
 [requires]
 python_version = "3.6.5"

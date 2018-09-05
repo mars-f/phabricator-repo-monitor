@@ -9,8 +9,6 @@ from typing import Dict, List
 
 from monitor.util import requests_retry_session
 
-# from committelemetry.sentry import client as sentry   # FIXME sentry integration
-
 log = logging.getLogger(__name__)
 
 
@@ -32,7 +30,6 @@ def changesets_for_pushid(pushid: int, push_json_url: str) -> List[str]:
         A list of changeset ID strings (40 char hex strings).
     """
     log.info(f"processing pushid {pushid}")
-    # sentry.extra_context({'pushid': pushid})  # FIXME sentry integration
     response = requests_retry_session().get(push_json_url)
     response.raise_for_status()
 

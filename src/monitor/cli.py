@@ -106,7 +106,7 @@ def report_lag(debug, no_send):
 
     # Run once right away, then run at intervals
     sched.add_job(job)
-    sched.add_job(job, 'interval', minutes=5)
+    sched.add_job(job, "interval", minutes=5)
 
     # This does not return
     sched.start()
