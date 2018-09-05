@@ -1,1 +1,1 @@
-monitor: bin/report-lag --debug
+monitor: bin/report-lag
