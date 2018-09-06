@@ -86,6 +86,10 @@ def process_push_message(body, message, no_send=False, extra_data=None):
     # push.
     ack()
 
+    # Don't carry over context between push IDs.
+    context = sentry.context.get()
+    del context["pushid"]
+
 
 def run_pulse_listener(
     username,
