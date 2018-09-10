@@ -14,7 +14,6 @@ from functools import partial
 
 from kombu import Connection, Exchange, Queue
 
-from monitor.sentry import client as sentry
 from monitor.hgmo import changesets_for_pushid
 from monitor.main import check_and_report_mirror_delay
 
@@ -70,7 +69,6 @@ def process_push_message(body, message, no_send=False, extra_data=None):
         return
 
     pushdata = pushlog_pushes.pop()
-    sentry.extra_context({"pushid": pushdata["pushid"]})
 
     mirror = extra_data["mirror_config"]
     reporting_fn = extra_data["reporting_function"]
@@ -85,10 +83,6 @@ def process_push_message(body, message, no_send=False, extra_data=None):
     # The changesets in this push have all been replicated.  Move on to the next
     # push.
     ack()
-
-    # Don't carry over context between push IDs.
-    context = sentry.context.get()
-    del context["pushid"]
 
 
 def run_pulse_listener(
