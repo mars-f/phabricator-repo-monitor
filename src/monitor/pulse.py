@@ -135,7 +135,9 @@ def run_pulse_listener(
 
         # Pass auto_declare=False so that Consumer does not try to declare the
         # exchange.  Declaring exchanges is not allowed by the Pulse server.
-        with connection.Consumer(queue, callbacks=[callback], auto_declare=False):
+        with connection.Consumer(
+            queue, callbacks=[callback], auto_declare=False, no_ack=True
+        ):
 
             if no_send:
                 log.info("transmission of monitoring data has been disabled")
