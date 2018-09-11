@@ -11,7 +11,8 @@ import datadog
 
 from monitor import config, reporting
 from monitor.main import determine_commit_replication_status
-from monitor.pulse import run_pulse_listener
+from monitor.pulse import AbortQueueProcessing, run_pulse_listener
+from monitor.sentry import capture_exceptions
 
 
 @click.command()
@@ -38,18 +39,23 @@ def display_lag(debug, node_ids):
             reporting.print_replication_lag(mirror, status)
     else:
         pulse_config = config.pulse_config_from_environ()
-        run_pulse_listener(
-            pulse_config.PULSE_USERNAME,
-            pulse_config.PULSE_PASSWORD,
-            pulse_config.PULSE_EXCHANGE,
-            pulse_config.PULSE_QUEUE_NAME,
-            pulse_config.PULSE_QUEUE_ROUTING_KEY,
-            pulse_config.PULSE_QUEUE_READ_TIMEOUT,
-            True,
-            worker_args=dict(
-                mirror_config=mirror, reporting_function=reporting.print_replication_lag
-            ),
-        )
+        try:
+            run_pulse_listener(
+                pulse_config.PULSE_USERNAME,
+                pulse_config.PULSE_PASSWORD,
+                pulse_config.PULSE_EXCHANGE,
+                pulse_config.PULSE_QUEUE_NAME,
+                pulse_config.PULSE_QUEUE_ROUTING_KEY,
+                pulse_config.PULSE_QUEUE_READ_TIMEOUT,
+                True,
+                worker_args=dict(
+                    mirror_config=mirror,
+                    reporting_function=reporting.print_replication_lag,
+                ),
+            )
+        except AbortQueueProcessing:
+            # The repo was lagged and the queue processor exited.
+            sys.exit(1)
 
 
 @click.command()
@@ -87,7 +93,7 @@ def report_lag(debug, no_send):
             reporting.report_all_caught_up_to_statsd, mirror
         )
 
-    def job():
+    def _job():
         run_pulse_listener(
             pulse_config.PULSE_USERNAME,
             pulse_config.PULSE_PASSWORD,
@@ -101,6 +107,8 @@ def report_lag(debug, no_send):
             ),
             empty_queue_callback=empty_queue_function,
         )
+
+    job = capture_exceptions(_job, ignored_exceptions=[AbortQueueProcessing])
 
     sched = BlockingScheduler()
 

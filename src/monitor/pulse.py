@@ -8,7 +8,6 @@ See https://wiki.mozilla.org/Auto-tools/Projects/Pulse
 """
 import logging
 import socket
-import sys
 from contextlib import closing
 from functools import partial
 
@@ -78,7 +77,7 @@ def process_push_message(body, message, no_send=False, extra_data=None):
 
     if replication_status.is_stale:
         # Don't ack() the message, leave processing where it is for the next job run.
-        sys.exit(1)
+        raise AbortQueueProcessing()
 
     # The changesets in this push have all been replicated.  Move on to the next
     # push.
@@ -162,3 +161,13 @@ def build_connection(password, username):
         userid=username,
         password=password,
     )
+
+
+class Error(Exception):
+    pass
+
+
+class AbortQueueProcessing(Error):
+    """Raised to stop all queue processing."""
+
+    pass

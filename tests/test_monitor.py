@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import copy
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, Mock, patch
 
 import kombu as kombu
 import maya
@@ -22,6 +22,7 @@ from monitor.config import Mirror
 # https://mozilla-version-control-tools.readthedocs.io/en/latest/hgmo/notifications.html#common-properties-of-notifications
 # Example messages can be collected from this URL:
 # https://tools.taskcluster.net/pulse-inspector?bindings[0][exchange]=exchange%2Fhgpushes%2Fv2&bindings[0][routingKeyPattern]=%23
+from monitor.pulse import AbortQueueProcessing
 from monitor.reporting import report_to_statsd
 
 example_message = {
@@ -66,8 +67,15 @@ null_mirror = Mirror("", "", "")
 
 @pytest.fixture(autouse=True)
 def null_config(monkeypatch):
+    """Set harmless defaults for environment variables that need to exist at runtime.
+    """
     monkeypatch.setenv("SOURCE_REPOSITORY", "")
     monkeypatch.setenv("REPOSITORY_CALLSIGN", "")
+    monkeypatch.setenv("PULSE_USERNAME", "foo")
+    monkeypatch.setenv("PULSE_PASSWORD", "baz")
+    monkeypatch.setenv("PULSE_EXCHANGE", "queue/foo/bar")
+    monkeypatch.setenv("PULSE_QUEUE_NAME", "bar")
+    monkeypatch.setenv("PULSE_QUEUE_ROUTING_KEY", "integration/autoland")
 
 
 @pytest.fixture
@@ -91,7 +99,7 @@ def memory_queue(monkeypatch):
 
     # This queue name has been constructed from the values above
     # to yield a valid Queue+Exchange combination.
-    yield connection.SimpleQueue("queue/foo/bar")
+    yield connection.SimpleQueue("queue/foo/bar", no_ack=True)
 
 
 @pytest.fixture(autouse=True)
@@ -236,7 +244,7 @@ def test_cli_report_lag_for_repo(memory_queue):
     ) as report_to_statsd:
         runner = CliRunner()
         result = runner.invoke(report_lag)
-        assert result.exit_code == 1
+        assert isinstance(result.exception, AbortQueueProcessing)
         report_to_statsd.assert_called_once_with(ANY, delay)
 
 
@@ -247,6 +255,28 @@ def test_cli_report_no_lag_for_repo_if_queue_empty(memory_queue):
 
         assert result.exit_code == 0
         report_to_statsd.assert_called_once_with(ANY, ReplicationStatus.fresh())
+
+
+def test_cli_queue_message_is_not_acknowledged_if_lag_found(memory_queue):
+    delay = ReplicationStatus.behind_by(300)
+
+    def delayed_five_minutes(*_):
+        return delay
+
+    def changesets(*_):
+        return ["aaa", "bbb", "ccc"]
+
+    memory_queue.put(copy.deepcopy(example_message))
+
+    with replace_function(
+        "monitor.main.determine_commit_replication_status", delayed_five_minutes
+    ), replace_function("monitor.hgmo.changesets_for_pushid", changesets), patch(
+        "kombu.message.Message.ack"
+    ) as ack:
+        runner = CliRunner()
+        result = runner.invoke(report_lag)
+        assert isinstance(result.exception, AbortQueueProcessing)
+        ack.assert_not_called()
 
 
 def test_fetch_commit_publication_time():
@@ -274,3 +304,35 @@ def test_report_to_statsd():
         statsd.gauge.assert_called_once_with(
             expected_stat_label, expected_reported_delay
         )
+
+
+def test_sentry_captures_job_errors():
+    def kaboom(*_, **__):
+        raise Exception("BOOM")
+
+    captureException = Mock()
+
+    with replace_function("monitor.cli.run_pulse_listener", kaboom), replace_function(
+        "monitor.sentry.Client.captureException", captureException
+    ):
+        runner = CliRunner()
+        result = runner.invoke(report_lag)
+
+        assert result.exit_code == -1  # This would be zero if we did not use stubs.
+        captureException.assert_called_once()
+
+
+def test_sentry_ignores_expected_exceptions():
+    def kaboom(*_, **__):
+        raise AbortQueueProcessing("Nevermind")
+
+    captureException = Mock()
+
+    with replace_function("monitor.cli.run_pulse_listener", kaboom), replace_function(
+        "monitor.sentry.Client.captureException", captureException
+    ):
+        runner = CliRunner()
+        result = runner.invoke(report_lag)
+
+        assert result.exit_code == -1  # This would be zero if we did not use stubs.
+        captureException.assert_not_called()
