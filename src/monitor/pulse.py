@@ -117,6 +117,7 @@ def run_pulse_listener(
             exclusive=False,
             auto_delete=False,
             channel=connection,
+            no_ack=True,
         )
 
         # Passing passive=True will assert that the exchange exists but won't
