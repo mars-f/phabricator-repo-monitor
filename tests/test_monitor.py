@@ -284,7 +284,7 @@ def test_fetch_commit_publication_time():
 
     # See monitor.utc_hgwebdate() for the data format
     publication_time_as_epoch, publication_time_offset = 0, 0
-    commit["date"] = [publication_time_as_epoch, publication_time_offset]
+    commit["pushdate"] = [publication_time_as_epoch, publication_time_offset]
 
     with patch("monitor.hgmo.requests_retry_session") as session:
         session().get().json.return_value = commit

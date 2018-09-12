@@ -69,7 +69,7 @@ def fetch_commit_publication_time(
 ) -> MayaDT:
     """Return a commit's publication time in the source repo."""
     changeset_json = hgmo.fetch_changeset(commit_sha, source_repository_url)
-    utc_epoch = utc_hgwebdate(changeset_json["date"])
+    utc_epoch = utc_hgwebdate(changeset_json["pushdate"])
     return MayaDT(utc_epoch)
 
 
