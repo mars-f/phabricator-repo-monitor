@@ -99,7 +99,7 @@ def memory_queue(monkeypatch):
 
     # This queue name has been constructed from the values above
     # to yield a valid Queue+Exchange combination.
-    yield connection.SimpleQueue("queue/foo/bar", no_ack=True)
+    yield connection.SimpleQueue("queue/foo/bar")
 
 
 @pytest.fixture(autouse=True)

@@ -117,7 +117,6 @@ def run_pulse_listener(
             exclusive=False,
             auto_delete=False,
             channel=connection,
-            no_ack=True,
         )
 
         # Passing passive=True will assert that the exchange exists but won't
@@ -137,7 +136,7 @@ def run_pulse_listener(
         # Pass auto_declare=False so that Consumer does not try to declare the
         # exchange.  Declaring exchanges is not allowed by the Pulse server.
         with connection.Consumer(
-            queue, callbacks=[callback], auto_declare=False, no_ack=True
+            queue, callbacks=[callback], auto_declare=False
         ):
 
             if no_send:
