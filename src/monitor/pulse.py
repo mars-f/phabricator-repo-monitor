@@ -77,7 +77,7 @@ def process_push_message(body, message, no_send=False, extra_data=None):
 
     if replication_status.is_stale:
         # Don't ack() the message, leave processing where it is for the next job run.
-        raise AbortQueueProcessing()
+        raise HaltQueueProcessing()
 
     # The changesets in this push have all been replicated.  Move on to the next
     # push.
@@ -150,7 +150,7 @@ def run_pulse_listener(
                 log.info("message queue is empty")
                 if empty_queue_callback:
                     empty_queue_callback()
-            except AbortQueueProcessing:
+            except HaltQueueProcessing:
                 log.debug("queue processing halted by consumer")
 
     log.info("done")
@@ -171,7 +171,7 @@ class Error(Exception):
     pass
 
 
-class AbortQueueProcessing(Error):
+class HaltQueueProcessing(Error):
     """Raised to stop all queue processing."""
 
     pass
