@@ -22,8 +22,8 @@ from monitor.config import Mirror
 # https://mozilla-version-control-tools.readthedocs.io/en/latest/hgmo/notifications.html#common-properties-of-notifications
 # Example messages can be collected from this URL:
 # https://tools.taskcluster.net/pulse-inspector?bindings[0][exchange]=exchange%2Fhgpushes%2Fv2&bindings[0][routingKeyPattern]=%23
-from monitor.pulse import AbortQueueProcessing
 from monitor.reporting import report_to_statsd
+from monitor.sentry import capture_exceptions
 
 example_message = {
     "payload": {
@@ -222,7 +222,7 @@ def test_cli_display_lag_for_repo(memory_queue):
     ), replace_function("monitor.hgmo.changesets_for_pushid", changesets):
         runner = CliRunner()
         result = runner.invoke(display_lag)
-        assert result.exit_code == 1
+        assert result.exit_code == 0
         assert "replication lag (seconds): 300" in result.output
 
 
@@ -244,7 +244,7 @@ def test_cli_report_lag_for_repo(memory_queue):
     ) as report_to_statsd:
         runner = CliRunner()
         result = runner.invoke(report_lag)
-        assert isinstance(result.exception, AbortQueueProcessing)
+        assert result.exit_code == 0
         report_to_statsd.assert_called_once_with(ANY, delay)
 
 
@@ -275,7 +275,7 @@ def test_cli_queue_message_is_not_acknowledged_if_lag_found(memory_queue):
     ) as ack:
         runner = CliRunner()
         result = runner.invoke(report_lag)
-        assert isinstance(result.exception, AbortQueueProcessing)
+        assert result.exit_code == 0
         ack.assert_not_called()
 
 
@@ -323,16 +323,19 @@ def test_sentry_captures_job_errors():
 
 
 def test_sentry_ignores_expected_exceptions():
-    def kaboom(*_, **__):
-        raise AbortQueueProcessing("Nevermind")
 
     captureException = Mock()
 
-    with replace_function("monitor.cli.run_pulse_listener", kaboom), replace_function(
-        "monitor.sentry.Client.captureException", captureException
-    ):
-        runner = CliRunner()
-        result = runner.invoke(report_lag)
+    class IgnoredError(Exception):
+        pass
 
-        assert result.exit_code == -1  # This would be zero if we did not use stubs.
+    with replace_function("monitor.sentry.Client.captureException", captureException):
+
+        def badfn():
+            raise IgnoredError("Let me pass")
+
+        wrapped = capture_exceptions(badfn, ignored_exceptions=[IgnoredError])
+
+        with pytest.raises(IgnoredError):
+            wrapped()
         captureException.assert_not_called()

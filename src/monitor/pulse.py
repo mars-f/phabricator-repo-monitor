@@ -150,6 +150,8 @@ def run_pulse_listener(
                 log.info("message queue is empty")
                 if empty_queue_callback:
                     empty_queue_callback()
+            except AbortQueueProcessing:
+                log.debug("queue processing halted by consumer")
 
     log.info("done")
 
