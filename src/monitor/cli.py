@@ -12,7 +12,7 @@ import datadog
 from monitor import config, reporting
 from monitor.main import determine_commit_replication_status
 from monitor.pulse import run_pulse_listener
-from monitor.sentry import capture_exceptions
+from monitor.sentry import record_exceptions
 
 
 @click.command()
@@ -88,7 +88,8 @@ def report_lag(debug, no_send):
             reporting.report_all_caught_up_to_statsd, mirror
         )
 
-    def _job():
+    @record_exceptions
+    def job():
         run_pulse_listener(
             pulse_config.PULSE_USERNAME,
             pulse_config.PULSE_PASSWORD,
@@ -102,8 +103,6 @@ def report_lag(debug, no_send):
             ),
             empty_queue_callback=empty_queue_function,
         )
-
-    job = capture_exceptions(_job)
 
     sched = BlockingScheduler()
 

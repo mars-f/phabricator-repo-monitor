@@ -23,7 +23,7 @@ from monitor.config import Mirror
 # Example messages can be collected from this URL:
 # https://tools.taskcluster.net/pulse-inspector?bindings[0][exchange]=exchange%2Fhgpushes%2Fv2&bindings[0][routingKeyPattern]=%23
 from monitor.reporting import report_to_statsd
-from monitor.sentry import capture_exceptions
+from monitor.sentry import record_exceptions
 
 example_message = {
     "payload": {
@@ -306,7 +306,7 @@ def test_report_to_statsd():
         )
 
 
-def test_sentry_captures_job_errors():
+def test_sentry_records_job_errors():
     def kaboom(*_, **__):
         raise Exception("BOOM")
 
@@ -334,7 +334,7 @@ def test_sentry_ignores_expected_exceptions():
         def badfn():
             raise IgnoredError("Let me pass")
 
-        wrapped = capture_exceptions(badfn, ignored_exceptions=[IgnoredError])
+        wrapped = record_exceptions(badfn, ignored_exceptions=[IgnoredError])
 
         with pytest.raises(IgnoredError):
             wrapped()

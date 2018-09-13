@@ -19,12 +19,12 @@ client = Client(
 )
 
 
-def capture_exceptions(f: Callable, ignored_exceptions=None):
-    """Decorator that captures exceptions and sends them to Sentry.
+def record_exceptions(f: Callable, ignored_exceptions=None):
+    """Decorator that watches for exceptions and sends them to Sentry.
 
     This can be used for frameworks where you do not have access to the full exception
     while it is being raised, such as APScheduler.  Simply decorate the function that
-    will be executed by the framework. The decorator will capture any exceptions is
+    will be executed by the framework. The decorator will capture any exceptions it
     raises and send them to Sentry while still allowing the APScheduler code to handle
     them as it sees fit (which usually means turning them into out-of-stack job events).
 
