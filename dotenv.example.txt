@@ -1,0 +1,29 @@
+# Example .env file for this service.
+#
+# Copy it and fill in your own values.
+
+# For reading message from the Mozilla Pulse messaging service.
+# See https://wiki.mozilla.org/Auto-tools/Projects/Pulse
+# You shouldn't need to change the default.
+#PULSE_EXCHANGE=exchange/hgpushes/v2
+
+# The credentials for this Pulse queue listener account.
+# See https://wiki.mozilla.org/Auto-tools/Projects/Pulse
+PULSE_USERNAME=your-pulse-username
+PULSE_PASSWORD=***secret***
+
+# The script will create a durable queue with this name to receive messages
+# from.  Pick a unique name and enter that name here.
+PULSE_QUEUE_NAME=my-phab-repo-monitor-queue
+
+# The routing key indicating the pulse queue messages you want to receive.
+# You want to set something like 'integration/mozilla-inbound'.
+PULSE_QUEUE_ROUTING_KEY=integration/mozilla-inbound
+
+# The repository we are mirroring into Phabricator.  This is where we pull
+# data about push times and such.
+SOURCE_REPOSITORY=https://hg.mozilla.org/integration/autoland/
+
+# The mirrored repository's callsign in Phabricator.  This is where we will
+# check to see if a commit in the source repo has been mirrored yet.
+REPOSITORY_CALLSIGN=MOZILLACENTRAL
