@@ -10,23 +10,26 @@ repository and its upstream repository.
 
 ## How it works
 
-The program runs an internal scheduler that fires a check-and-report routine
+The program runs an internal scheduler that triggers a check-and-report routine
 every five minutes.
 
-To check the repository replication delay the program reads mercurial repository push messages off of the Mozilla Pulse
-`hgpush` message queue.  Each push contains multiple commits.  Pushes and the
+To check the Phabricator repository replication delay the program reads Mercurial
+ repository push messages off of the [Mozilla Pulse](https://wiki.mozilla.org/Auto-tools/Projects/Pulse)
+`hgpush` message queue.  There is one `hgpush` message for each push made to the upstream
+repository.  Each push contains multiple commits.  Pushes and the
 commits inside them are in order, oldest to newest.
 
-For each commit in a push the program checks for the existence of that push in
-the Phabricator repository mirror.  If all commits in the push exist in Phabricator
+For each commit in an upstream push the program checks for the existence of that commit in
+the downstream Phabricator repository mirror.  If all commits in the push exist in Phabricator
 then we assume the push has been fully mirrored to Phabricator. The
-push message is removed from the queue, a lag of zero seconds is reported, and the
+push message is removed from the queue, a replication delay of zero seconds is reported, and the
 program moves on to the next push message.
 
 If one or more commits in a push is missing from Phabricator then we assume the Phabricator
-repository replication program is still working to catch up to the source repo.
+repository replication program is still working to catch up to the upstream repo.
 Our program reports the replication delay as the difference between the current time and the time the push
-to the source repo took place.  The delay-checking routine exits early and the push message is left at the head of the queue for the next run.
+to the source repo took place.  The delay-checking routine exits early and the push 
+message is left at the head of the queue for the next check-and-report run.
 
 
 ---
