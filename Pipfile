@@ -17,6 +17,7 @@ kombu = "*"
 datadog = "*"
 apscheduler = "*"
 raven = "*"
+urllib3 = "*"
 
 [requires]
 python_version = "3.6.5"
